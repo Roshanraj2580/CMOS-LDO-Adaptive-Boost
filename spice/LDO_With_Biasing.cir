@@ -1,0 +1,57 @@
+* CMOS LDO Regulator with Transistorized Biasing Network
+* Replaces ideal bias sources with a self-biased current mirror tree.
+
+VDD VDD 0 DC 5.0
+VREF VREF 0 DC 1.2
+
+* Transistorized Bias Generation Network:
+* Reference current generation branch
+R_BIAS VDD N_BIAS_P 76k
+M_BIAS_P N_BIAS_P N_BIAS_P VDD VDD PMOS_GEN W=20u L=1u
+* Generates ~50uA reference current
+
+* Current mirror for differential pair tail (50uA)
+M_BIAS_N1 N_BIAS_N N_BIAS_P 0 0 NMOS_GEN W=10u L=1u
+M_TAIL TAIL N_BIAS_N 0 0 NMOS_GEN W=10u L=1u
+
+* Biasing for Second Stage PMOS active load M7
+* M7 gate connects directly to N_BIAS_P
+
+* Feedback Divider
+R1 VOUT VFEEDBACK 200k
+R2 VFEEDBACK 0 114k
+
+* Error Amplifier Stage 1
+M4 N1 VREF TAIL 0 NMOS_GEN W=10u L=1u
+M5 N2 VFEEDBACK TAIL 0 NMOS_GEN W=10u L=1u
+M2 N1 N1 VDD VDD PMOS_GEN W=10u L=1u
+M3 N2 N1 VDD VDD PMOS_GEN W=10u L=1u
+
+* Error Amplifier Stage 2
+M6 VGATE N2 0 0 NMOS_GEN W=20u L=1u
+M7 VGATE N_BIAS_P VDD VDD PMOS_GEN W=20u L=1u
+R3 N2 VMILLER 1k
+C2 VMILLER VGATE 100f
+
+* Pass Transistors
+M1 VOUT VGATE VDD VDD PMOS_GEN W=200u L=1u
+MP1 VOUT VGATE VDD VDD PMOS_GEN W=200u L=1u
+
+* Transient Boost Network
+C_DETECT VOUT DETECT 47p
+RDOWN DETECT VDD 47k
+M8 AMPOUT DETECT VDD VDD PMOS_GEN W=20u L=180n
+R4 AMPOUT 0 100k
+Mnew VGATE AMPOUT 0 0 NMOS_GEN W=100u L=1u
+
+* Output Network
+C1 VOUT 0 1u
+I_LOAD VOUT 0 PULSE(1m 100m 1u 1n 1n 5u 20u)
+
+* Models
+.model NMOS_GEN NMOS (LEVEL=1 VTO=0.7 KP=120u GAMMA=0.45 PHI=0.65 LAMBDA=0.02 TOX=10n)
+.model PMOS_GEN PMOS (LEVEL=1 VTO=-0.7 KP=50u GAMMA=0.4 PHI=0.65 LAMBDA=0.02 TOX=10n)
+
+.tran 0 60u
+
+.end

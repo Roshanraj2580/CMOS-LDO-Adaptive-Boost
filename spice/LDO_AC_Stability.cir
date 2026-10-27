@@ -1,0 +1,63 @@
+* CMOS LDO Regulator with Adaptive Boost - AC Loop Stability Testbench (Middlebrook Method)
+* Measures Open-Loop Gain, Unity Gain Bandwidth (UGB), and Phase Margin across load currents.
+
+.param ILOAD = 1m
+.step param ILOAD list 1m 10m 50m 100m
+
+* Power Supplies
+VDD VDD 0 DC 5.0
+VREF VREF 0 DC 1.2
+VNBIAS NBIAS 0 DC 1.2
+
+* Middlebrook Loop Injection Network
+* Inductor L_loop maintains DC closed-loop operating point.
+* Capacitor C_loop injects AC perturbation into the feedback divider.
+L_loop VOUT FB_IN 1G
+C_loop FB_IN STIM_IN 1G
+V_stim STIM_IN 0 DC 0 AC 1
+
+* Feedback Resistor Divider
+R1 FB_IN VFEEDBACK 200k
+R2 VFEEDBACK 0 114k
+
+* Error Amplifier Stage 1: NMOS Differential Pair with PMOS Current Mirror Load
+* Input pair
+M4 N1 VREF TAIL 0 NMOS_GEN W=10u L=1u
+M5 N2 VFEEDBACK TAIL 0 NMOS_GEN W=10u L=1u
+* Tail current source (50uA)
+I_TAIL TAIL 0 DC 50u
+* PMOS Active Mirror Load
+M2 N1 N1 VDD VDD PMOS_GEN W=10u L=1u
+M3 N2 N1 VDD VDD PMOS_GEN W=10u L=1u
+
+* Error Amplifier Stage 2: Common Source with Active Load & Miller Compensation
+* Driver NMOS
+M6 VGATE N2 0 0 NMOS_GEN W=20u L=1u
+* Active PMOS load
+M7 VGATE NBIAS VDD VDD PMOS_GEN W=20u L=1u
+* Miller Compensation Network (Nulling Resistor R_c + Capacitor C_c)
+R3 N2 VMILLER 1k
+C2 VMILLER VGATE 100f
+
+* Pass Transistors (M1 || MP1: PMOS, total W=400u, L=1u)
+M1 VOUT VGATE VDD VDD PMOS_GEN W=200u L=1u
+MP1 VOUT VGATE VDD VDD PMOS_GEN W=200u L=1u
+
+* Load & Output Network
+C1 VOUT 0 1u
+I_LOAD VOUT 0 DC {ILOAD}
+
+* Default Level-1 MOSFET Models (Standard LTspice level-1 compatible)
+.model NMOS_GEN NMOS (LEVEL=1 VTO=0.7 KP=120u GAMMA=0.45 PHI=0.65 LAMBDA=0.02 TOX=10n)
+.model PMOS_GEN PMOS (LEVEL=1 VTO=-0.7 KP=50u GAMMA=0.4 PHI=0.65 LAMBDA=0.02 TOX=10n)
+
+* Simulation Directives
+.ac dec 20 1 100Meg
+
+* Measurement Directives for Stability
+* Loop Gain T(s) = - V(VOUT) / V(FB_IN)
+.meas AC UGB WHEN mag(-V(VOUT)/V(FB_IN))=1
+.meas AC PhaseAtUGB FIND phase(-V(VOUT)/V(FB_IN)) WHEN mag(-V(VOUT)/V(FB_IN))=1
+.meas AC PM PARAM (180 + PhaseAtUGB)
+
+.end
